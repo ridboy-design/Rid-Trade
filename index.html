@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>XAU Backtest</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#14161a">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="tabbar">
+  <button class="tab-btn active" data-tab="strategies">Strategies</button>
+  <button class="tab-btn" data-tab="monitor">Monitor</button>
+</div>
+
+<div id="strategies" class="tab-content active">
+
+  <label>Saved strategy</label>
+  <select id="strategySelect"><option value="">(new strategy)</option></select>
+
+  <label>Name</label>
+  <input id="nameInput" type="text" value="orb_default">
+  <div class="row">
+    <button id="saveBtn">Save</button>
+    <button id="deleteBtn" class="danger">Delete</button>
+  </div>
+
+  <label>Strategy code (paste here)</label>
+  <textarea id="codeInput" rows="12"></textarea>
+
+  <label>CSV file</label>
+  <div class="row">
+    <input id="csvFileInput" type="file" accept=".csv">
+  </div>
+  <div id="csvStatus" class="status"></div>
+
+  <label>Mode</label>
+  <select id="modeSelect">
+    <option>Single</option>
+    <option>Optimize</option>
+    <option>Walk-Forward</option>
+  </select>
+
+  <label id="paramsLabel">Params (key=val,key=val) — blank uses DEFAULT_PARAMS</label>
+  <input id="paramsInput" type="text" value="">
+
+  <button id="runBtn" class="run-btn">▶ RUN</button>
+
+  <label>Output</label>
+  <pre id="output" class="output"></pre>
+
+</div>
+
+<div id="monitor" class="tab-content">
+  <button id="refreshBtn">Refresh</button>
+  <pre id="monitorOutput" class="output"></pre>
+</div>
+
+<script src="engine.js"></script>
+<script src="strategy_runner.js"></script>
+<script src="app.js"></script>
+<script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("sw.js").catch(() => {});
+    });
+  }
+</script>
+</body>
+</html>
