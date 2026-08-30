@@ -34,7 +34,7 @@ def send_equity_image(topic, title, trades, label):
     with open(path, "rb") as f:
         requests.put(topic, data=f, headers={
             "Filename": os.path.basename(path),
-            "Title": f"{title} — {label} equity curve",
+            "Title": f"{title} - {label} equity curve",
         })
 
 def main():
@@ -55,7 +55,7 @@ def main():
         p = dict(ns.get("DEFAULT_PARAMS", {})); p.update(params)
         trades = ns["run_strategy"](df, p)
         m = engine.compute_metrics(trades)
-        title = f"{name} — Single run"
+        title = f"{name} - Single run"
         body = (f"params {p}\n"
                 f"trades: {m['num_trades']}  win rate: {m['win_rate']}%\n"
                 f"PF: {m['profit_factor']}  expectancy: {m['expectancy_r']}R\n"
@@ -67,7 +67,7 @@ def main():
     elif mode == "Optimize":
         grid = sr.parse_grid(params_text)
         results = sr.run_optimize(df, code, grid or None)
-        title = f"{name} — Optimize"
+        title = f"{name} - Optimize"
         if not results:
             body = "No configs met minimum trade count."
         else:
@@ -87,7 +87,7 @@ def main():
         ex_trades = ns["run_strategy"](explore, p)
         ho_trades = ns["run_strategy"](holdout, p)
         ex_m, ho_m = engine.compute_metrics(ex_trades), engine.compute_metrics(ho_trades)
-        title = f"{name} — Walk-Forward"
+        title = f"{name} - Walk-Forward"
         body = (f"params {p}  split {cut}\n"
                 f"EXPLORE  PF {ex_m['profit_factor']}  exp {ex_m['expectancy_r']}R  "
                 f"avgW {ex_m['avg_win_r']}  avgL {ex_m['avg_loss_r']}\n"
