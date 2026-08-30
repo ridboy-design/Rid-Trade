@@ -89,12 +89,52 @@ function saveRun(record) {
   runs.push(record);
   localStorage.setItem("runs", JSON.stringify(runs));
 }
+function deleteRun(ts) {
+  const runs = getRuns().filter(r => r.ts !== ts);
+  localStorage.setItem("runs", JSON.stringify(runs));
+  refreshMonitor();
+}
+function clearAllRuns() {
+  localStorage.setItem("runs", "[]");
+  refreshMonitor();
+}
 function refreshMonitor() {
   const runs = getRuns().slice().reverse();
+  const container = $("monitorList");
+  container.innerHTML = "";
   if (runs.length === 0) {
-    $("monitorOutput").textContent = "No runs yet. Go to Strategies tab and hit RUN.";
+    container.innerHTML = '<pre class="output">No runs yet. Go to Strategies tab and hit RUN.</pre>';
     return;
   }
+  runs.forEach(r => {
+    const dt = new Date(r.ts).toLocaleString();
+    let summaryLine = "";
+    if (r.mode === "Walk-Forward" && r.summary && r.summary.explore) {
+      summaryLine = `explore PF: ${r.summary.explore.profit_factor}  holdout PF: ${r.summary.holdout.profit_factor}`;
+    } else if (r.summary) {
+      summaryLine = JSON.stringify(r.summary);
+    }
+    const div = document.createElement("div");
+    div.className = "output";
+    div.style.marginBottom = "8px";
+    div.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <b>${r.strategy}</b> [${r.mode}]
+        <button data-ts="${r.ts}" class="danger run-del-btn" style="padding:4px 10px; margin:0;">✕</button>
+      </div>
+      <div style="font-size:11px; color:#9aa0a8;">${dt}</div>
+      <div>${summaryLine}</div>
+    `;
+    container.appendChild(div);
+  });
+  container.querySelectorAll(".run-del-btn").forEach(btn => {
+    btn.addEventListener("click", () => deleteRun(parseFloat(btn.dataset.ts)));
+  });
+}
+$("refreshBtn").addEventListener("click", refreshMonitor);
+$("clearAllBtn").addEventListener("click", () => {
+  if (confirm("Delete all run history?")) clearAllRuns();
+});
   const lines = [];
   runs.forEach(r => {
     const dt = new Date(r.ts).toLocaleString();
