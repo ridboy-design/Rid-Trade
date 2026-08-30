@@ -62,7 +62,9 @@ $("csvFileInput").addEventListener("change", (e) => {
   reader.onload = () => {
     try {
       currentBars = parseCSV(reader.result);
-      $("csvStatus").textContent = `Loaded ${currentBars.length} bars from ${currentCsvName}`;
+      const hasSpread = currentBars.length > 0 && currentBars[0].spread !== undefined;
+      $("csvStatus").textContent = `Loaded ${currentBars.length} bars from ${currentCsvName}` +
+        (hasSpread ? " (spread column detected)" : "");
     } catch (err) {
       currentBars = null;
       $("csvStatus").textContent = "Error: " + err.message;
@@ -79,6 +81,27 @@ $("modeSelect").addEventListener("change", () => {
     $("paramsLabel").textContent = "Params (key=val,key=val) — blank uses DEFAULT_PARAMS";
   }
 });
+
+function getDollarOpts() {
+  return {
+    startingBalance: parseFloat($("startingBalanceInput").value) || 1000,
+    riskPercent: parseFloat($("riskPercentInput").value) || 1,
+    spreadCost: parseFloat($("spreadCostInput").value) || 0,
+    commissionCost: parseFloat($("commissionCostInput").value) || 0,
+  };
+}
+
+function formatDollarBlock(dollar) {
+  return [
+    "-- ACCOUNT --",
+    `starting balance: $${dollar.starting_balance}`,
+    `ending balance: $${dollar.ending_balance}`,
+    `total return: ${dollar.total_return_pct}%`,
+    `max drawdown: ${dollar.max_drawdown_pct}%`,
+    `risk per trade: ${dollar.risk_percent}%`,
+    `spread + commission per trade: $${dollar.spread_cost_per_trade} + $${dollar.commission_cost_per_trade}`,
+  ].join("\n");
+}
 
 function getRuns() {
   return JSON.parse(localStorage.getItem("runs") || "[]");
@@ -114,6 +137,14 @@ function refreshMonitor() {
     } else if (r.summary) {
       summaryLine = JSON.stringify(r.summary);
     }
+    let accountLine = "";
+    if (r.account) {
+      if (r.account.explore) {
+        accountLine = `explore end: $${r.account.explore.ending_balance}  holdout end: $${r.account.holdout.ending_balance}`;
+      } else {
+        accountLine = `ending balance: $${r.account.ending_balance} (${r.account.total_return_pct}%)`;
+      }
+    }
     const div = document.createElement("div");
     div.className = "output";
     div.style.marginBottom = "8px";
@@ -124,6 +155,7 @@ function refreshMonitor() {
       </div>
       <div style="font-size:11px; color:#9aa0a8;">${dt}</div>
       <div>${summaryLine}</div>
+      <div style="font-size:11px; color:#9aa0a8;">${accountLine}</div>
     `;
     container.appendChild(div);
   });
@@ -135,20 +167,6 @@ $("refreshBtn").addEventListener("click", refreshMonitor);
 $("clearAllBtn").addEventListener("click", () => {
   if (confirm("Delete all run history?")) clearAllRuns();
 });
-  const lines = [];
-  runs.forEach(r => {
-    const dt = new Date(r.ts).toLocaleString();
-    lines.push(`${r.strategy}  [${r.mode}]  ${dt}`);
-    if (r.mode === "Walk-Forward" && r.summary && r.summary.explore) {
-      lines.push(`  explore PF: ${r.summary.explore.profit_factor}  holdout PF: ${r.summary.holdout.profit_factor}`);
-    } else if (r.summary) {
-      lines.push("  " + JSON.stringify(r.summary));
-    }
-    lines.push("");
-  });
-  $("monitorOutput").textContent = lines.join("\n");
-}
-$("refreshBtn").addEventListener("click", refreshMonitor);
 
 $("runBtn").addEventListener("click", () => {
   const name = $("nameInput").value.trim() || "unnamed";
@@ -158,13 +176,17 @@ $("runBtn").addEventListener("click", () => {
 
   if (!currentBars) { out.textContent = "Load a CSV first."; return; }
 
+  const dollarOpts = getDollarOpts();
+
   try {
     if (mode === "Single") {
       const params = parseParams($("paramsInput").value);
       const result = runSingle(currentBars, code, params);
+      const dollar = computeDollarMetrics(result.trades, dollarOpts);
       out.textContent = "params: " + JSON.stringify(result.params) + "\n\n" +
-        Object.entries(result.metrics).map(([k, v]) => `${k}: ${v}`).join("\n");
-      saveRun({ strategy: name, mode, summary: result.metrics, params: result.params });
+        Object.entries(result.metrics).map(([k, v]) => `${k}: ${v}`).join("\n") +
+        "\n\n" + formatDollarBlock(dollar);
+      saveRun({ strategy: name, mode, summary: result.metrics, params: result.params, account: dollar });
 
     } else if (mode === "Optimize") {
       const grid = parseGrid($("paramsInput").value);
@@ -176,6 +198,7 @@ $("runBtn").addEventListener("click", () => {
         results.slice(0, 15).forEach(r => {
           lines.push(`${JSON.stringify(r.params)} -> PF ${r.profit_factor}, trades ${r.num_trades}, exp ${r.expectancy_r}R`);
         });
+        lines.push("", "(Run the top config in Single mode to see account/$ balance simulation.)");
         out.textContent = lines.join("\n");
         saveRun({ strategy: name, mode, summary: results[0], numConfigsTested: results.length });
       }
@@ -183,11 +206,20 @@ $("runBtn").addEventListener("click", () => {
     } else if (mode === "Walk-Forward") {
       const params = parseParams($("paramsInput").value);
       const result = runWalkForward(currentBars, code, params);
+      const exploreDollar = computeDollarMetrics(result.exploreTrades, dollarOpts);
+      const holdoutDollar = computeDollarMetrics(result.holdoutTrades, dollarOpts);
       const lines = ["params: " + JSON.stringify(result.params), "split date: " + result.cutDate, "",
         "-- EXPLORE --", ...Object.entries(result.explore).map(([k, v]) => `${k}: ${v}`),
-        "", "-- HOLDOUT --", ...Object.entries(result.holdout).map(([k, v]) => `${k}: ${v}`)];
+        formatDollarBlock(exploreDollar),
+        "", "-- HOLDOUT --", ...Object.entries(result.holdout).map(([k, v]) => `${k}: ${v}`),
+        formatDollarBlock(holdoutDollar)];
       out.textContent = lines.join("\n");
-      saveRun({ strategy: name, mode, summary: { explore: result.explore, holdout: result.holdout }, params: result.params });
+      saveRun({
+        strategy: name, mode,
+        summary: { explore: result.explore, holdout: result.holdout },
+        params: result.params,
+        account: { explore: exploreDollar, holdout: holdoutDollar },
+      });
     }
   } catch (e) {
     out.textContent = "Error: " + e.message;
