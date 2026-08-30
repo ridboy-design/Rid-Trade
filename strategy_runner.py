@@ -1,8 +1,10 @@
 import itertools
 import engine
 
+
 class StrategyError(Exception):
     pass
+
 
 def load_strategy(code_str):
     ns = {}
@@ -13,6 +15,7 @@ def load_strategy(code_str):
     if "run_strategy" not in ns or not callable(ns["run_strategy"]):
         raise StrategyError("Code must define: run_strategy(df, params)")
     return ns
+
 
 def parse_params(text):
     params = {}
@@ -30,6 +33,7 @@ def parse_params(text):
             pass
         params[k] = v
     return params
+
 
 def parse_grid(text):
     grid = {}
@@ -51,12 +55,14 @@ def parse_grid(text):
         grid[k] = vals
     return grid
 
+
 def run_single(df, code_str, params_override=None):
     ns = load_strategy(code_str)
     params = dict(ns.get("DEFAULT_PARAMS", {}))
     params.update(params_override or {})
     trades = ns["run_strategy"](df, params)
-    return {"params": params, "metrics": engine.compute_metrics(trades)}
+    return {"params": params, "metrics": engine.compute_metrics(trades), "trades": trades}
+
 
 def run_optimize(df, code_str, grid_override=None, min_trades=15):
     ns = load_strategy(code_str)
@@ -80,6 +86,7 @@ def run_optimize(df, code_str, grid_override=None, min_trades=15):
     results.sort(key=pf_key, reverse=True)
     return results
 
+
 def run_walkforward(df, code_str, params_override=None, split_frac=0.6):
     ns = load_strategy(code_str)
     params = dict(ns.get("DEFAULT_PARAMS", {}))
@@ -89,4 +96,6 @@ def run_walkforward(df, code_str, params_override=None, split_frac=0.6):
     ho_trades = ns["run_strategy"](holdout, params)
     return {"params": params, "split_date": str(cut),
             "explore": engine.compute_metrics(ex_trades),
-            "holdout": engine.compute_metrics(ho_trades)}
+            "holdout": engine.compute_metrics(ho_trades),
+            "explore_trades": ex_trades,
+            "holdout_trades": ho_trades}
