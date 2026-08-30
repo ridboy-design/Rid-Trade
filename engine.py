@@ -16,7 +16,8 @@ def load_data(path):
 def compute_metrics(trades):
     if not trades:
         return {"num_trades": 0, "win_rate": 0.0, "profit_factor": 0.0,
-                "expectancy_r": 0.0, "max_drawdown_r": 0.0, "calmar": 0.0}
+                "expectancy_r": 0.0, "max_drawdown_r": 0.0, "calmar": 0.0,
+                "avg_win_r": 0.0, "avg_loss_r": 0.0}
     r = np.array([t["r_multiple"] for t in trades], dtype=float)
     wins = r[r > 0]
     losses = r[r <= 0]
@@ -38,7 +39,19 @@ def compute_metrics(trades):
         "expectancy_r": round(expectancy, 3),
         "max_drawdown_r": round(max_dd, 3),
         "calmar": round(calmar, 3) if calmar != float("inf") else calmar,
+        "avg_win_r": round(wins.mean(), 3) if len(wins) else 0.0,
+        "avg_loss_r": round(losses.mean(), 3) if len(losses) else 0.0,
     }
+
+def equity_curve(trades):
+    """Cumulative R after each trade, in order."""
+    r = [t["r_multiple"] for t in trades]
+    curve = []
+    total = 0.0
+    for x in r:
+        total += x
+        curve.append(total)
+    return curve
 
 def walk_forward_split(df, split_frac=0.6):
     dates = sorted(df["timestamp"].dt.date.unique())
