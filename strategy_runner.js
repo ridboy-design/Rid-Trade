@@ -65,7 +65,7 @@ function runSingle(bars, code, paramsOverride) {
   const mod = loadStrategy(code);
   const params = { ...mod.DEFAULT_PARAMS, ...(paramsOverride || {}) };
   const trades = mod.runStrategy(bars, params);
-  return { params, metrics: computeMetrics(trades), numTrades: trades.length };
+  return { params, metrics: computeMetrics(trades), numTrades: trades.length, trades };
 }
 
 function runOptimize(bars, code, gridOverride, minTrades) {
@@ -100,6 +100,8 @@ function runWalkForward(bars, code, paramsOverride, splitFrac) {
     cutDate,
     explore: computeMetrics(exploreTrades),
     holdout: computeMetrics(holdoutTrades),
+    exploreTrades,
+    holdoutTrades,
   };
 }
 
