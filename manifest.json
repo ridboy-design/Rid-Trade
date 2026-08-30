@@ -1,6 +1,6 @@
 {
-  "name": "XAU Backtest",
-  "short_name": "XAU Backtest",
+  "name": "Rid-Trade",
+  "short_name": "Rid-Trade",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#14161a",
