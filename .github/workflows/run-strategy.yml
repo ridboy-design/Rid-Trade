@@ -23,6 +23,18 @@ on:
       params:
         description: 'key=val,key=val  OR  key=v1,v2;key=v3,v4 for Optimize'
         default: ''
+      starting_balance:
+        description: 'Starting balance ($)'
+        default: '1000'
+      risk_percent:
+        description: 'Risk % per trade (compounding)'
+        default: '1'
+      spread_cost:
+        description: 'Spread cost per trade ($, round-turn)'
+        default: '0'
+      commission_cost:
+        description: 'Commission per trade ($, round-turn)'
+        default: '0'
       ntfy_topic:
         description: 'ntfy topic URL (blank to skip notification)'
         default: ''
@@ -41,5 +53,9 @@ jobs:
           DATA_FILE: ${{ inputs.data_file }}
           MODE: ${{ inputs.mode }}
           PARAMS: ${{ inputs.params }}
+          STARTING_BALANCE: ${{ inputs.starting_balance }}
+          RISK_PERCENT: ${{ inputs.risk_percent }}
+          SPREAD_COST: ${{ inputs.spread_cost }}
+          COMMISSION_COST: ${{ inputs.commission_cost }}
           NTFY_TOPIC: ${{ inputs.ntfy_topic }}
         run: python scripts/run.py
