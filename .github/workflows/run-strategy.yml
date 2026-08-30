@@ -43,3 +43,4 @@ jobs:
           PARAMS: ${{ inputs.params }}
           NTFY_TOPIC: ${{ inputs.ntfy_topic }}
         run: python scripts/run.py
+- run: pip install pandas numpy requests matplotlib
