@@ -1,0 +1,45 @@
+name: Run Strategy
+
+on:
+  workflow_dispatch:
+    inputs:
+      strategy_file:
+        description: 'Path to strategy .py file'
+        default: 'strategies/orb_default.py'
+        required: true
+      data_file:
+        description: 'Path to CSV data file'
+        default: 'data/gold_data.csv'
+        required: true
+      mode:
+        description: 'Run mode'
+        default: 'Single'
+        required: true
+        type: choice
+        options:
+          - Single
+          - Optimize
+          - Walk-Forward
+      params:
+        description: 'key=val,key=val  OR  key=v1,v2;key=v3,v4 for Optimize'
+        default: ''
+      ntfy_topic:
+        description: 'ntfy topic URL (blank to skip notification)'
+        default: ''
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install pandas numpy requests
+      - env:
+          STRATEGY_FILE: ${{ inputs.strategy_file }}
+          DATA_FILE: ${{ inputs.data_file }}
+          MODE: ${{ inputs.mode }}
+          PARAMS: ${{ inputs.params }}
+          NTFY_TOPIC: ${{ inputs.ntfy_topic }}
+        run: python scripts/run.py
