@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 
+
 def load_data(path):
     df = pd.read_csv(path)
     cols = {c.lower().strip(): c for c in df.columns}
@@ -11,13 +12,19 @@ def load_data(path):
     df = df.rename(columns={cols[c]: c for c in required})
     df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
     df = df.sort_values("timestamp").reset_index(drop=True)
-    return df[["timestamp", "open", "high", "low", "close"]]
+
+    keep = ["timestamp", "open", "high", "low", "close"]
+    if "spread" in cols:
+        df = df.rename(columns={cols["spread"]: "spread"})
+        keep.append("spread")
+    return df[keep]
+
 
 def compute_metrics(trades):
     if not trades:
         return {"num_trades": 0, "win_rate": 0.0, "profit_factor": 0.0,
-                "expectancy_r": 0.0, "max_drawdown_r": 0.0, "calmar": 0.0,
-                "avg_win_r": 0.0, "avg_loss_r": 0.0}
+                 "expectancy_r": 0.0, "max_drawdown_r": 0.0, "calmar": 0.0,
+                 "avg_win_r": 0.0, "avg_loss_r": 0.0}
     r = np.array([t["r_multiple"] for t in trades], dtype=float)
     wins = r[r > 0]
     losses = r[r <= 0]
@@ -43,6 +50,7 @@ def compute_metrics(trades):
         "avg_loss_r": round(losses.mean(), 3) if len(losses) else 0.0,
     }
 
+
 def equity_curve(trades):
     """Cumulative R after each trade, in order."""
     r = [t["r_multiple"] for t in trades]
@@ -52,6 +60,44 @@ def equity_curve(trades):
         total += x
         curve.append(total)
     return curve
+
+
+def compute_dollar_metrics(trades, starting_balance=1000.0, risk_percent=1.0,
+                             spread_cost=0.0, commission_cost=0.0):
+    """
+    Simulates a real account: compounding balance, risk% of current balance per
+    trade, flat spread/commission cost per round-turn trade. Costs are subtracted
+    in dollar terms after the risk-based P&L, same convention as engine.js.
+    """
+    risk_frac = risk_percent / 100.0
+    balance = starting_balance
+    peak = starting_balance
+    max_dd_pct = 0.0
+    equity_curve_dollars = [{"trade": 0, "date": None, "balance": round(balance, 2)}]
+
+    for i, t in enumerate(trades or []):
+        risk_amount = balance * risk_frac
+        gross_pnl = risk_amount * t["r_multiple"]
+        net_pnl = gross_pnl - spread_cost - commission_cost
+        balance += net_pnl
+        peak = max(peak, balance)
+        dd_pct = ((peak - balance) / peak * 100) if peak > 0 else 0.0
+        max_dd_pct = max(max_dd_pct, dd_pct)
+        equity_curve_dollars.append({"trade": i + 1, "date": t.get("date"), "balance": round(balance, 2)})
+
+    total_return_pct = ((balance - starting_balance) / starting_balance * 100) if starting_balance else 0.0
+
+    return {
+        "starting_balance": starting_balance,
+        "ending_balance": round(balance, 2),
+        "total_return_pct": round(total_return_pct, 2),
+        "max_drawdown_pct": round(max_dd_pct, 2),
+        "risk_percent": risk_percent,
+        "spread_cost_per_trade": spread_cost,
+        "commission_cost_per_trade": commission_cost,
+        "equity_curve": equity_curve_dollars,
+    }
+
 
 def walk_forward_split(df, split_frac=0.6):
     dates = sorted(df["timestamp"].dt.date.unique())
